@@ -1,0 +1,43 @@
+name: Build SqlSugar
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  build:
+    name: Build and Analyze
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          8.0.x
+          9.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore SqlSugar.sln
+
+    - name: Build
+      run: dotnet build SqlSugar.sln --no-restore --configuration Release
+
+    - name: Embold Analyse
+      shell: bash # Explicitly use bash for the curl/tar commands on Windows
+      run: |
+        curl ${{ vars.EMBOLD_SCANNER_URL}} -o browserstack-codequality-scanner-archive.tar.gz
+        tar xvf browserstack-codequality-scanner-archive.tar.gz
+        echo "Download and extract BrowserStack CQ Scanner done"
+        
+        # ⚠️ IMPORTANT: You must replace 'YOUR_SQLSUGAR_REPO_ID' with the actual ID from Embold
+        curl --silent --location --request GET "${{ vars.EMBOLD_URL_CS}}/api/v1/repositories/1233cdd1464463dcd122b3c07a9856a1/scans/config/download" --header "Authorization:Bearer ${{ secrets.EMBOLD_TOKEN_CS}}" -o repository-configuration.json
+        echo "Download repository configuration file done"
+        
+        # ⚠️ IMPORTANT: Replace 'YOUR_SQLSUGAR_REPO_ID' here as well
+        ./browserstack-codequality-scanner/bin/embold-scanner analyse -u ${{ vars.EMBOLD_URL_CS}} -t ${{ secrets.EMBOLD_TOKEN_CS}} -r 1233cdd1464463dcd122b3c07a9856a1 -b . -d ./embold-data -c ./repository-configuration.json -v
