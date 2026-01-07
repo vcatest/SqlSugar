@@ -22,22 +22,23 @@ jobs:
           8.0.x
           9.0.x
 
+    # FIX: Point to the 'Src' directory where the .sln file actually resides
     - name: Restore dependencies
-      run: dotnet restore SqlSugar.sln
+      run: dotnet restore Src/SqlSugar.sln
 
+    # FIX: Point to the 'Src' directory here as well
     - name: Build
-      run: dotnet build SqlSugar.sln --no-restore --configuration Release
+      run: dotnet build Src/SqlSugar.sln --no-restore --configuration Release
 
     - name: Embold Analyse
-      shell: bash # Explicitly use bash for the curl/tar commands on Windows
+      shell: bash
       run: |
         curl ${{ vars.EMBOLD_SCANNER_URL}} -o browserstack-codequality-scanner-archive.tar.gz
         tar xvf browserstack-codequality-scanner-archive.tar.gz
         echo "Download and extract BrowserStack CQ Scanner done"
         
-        # ⚠️ IMPORTANT: You must replace 'YOUR_SQLSUGAR_REPO_ID' with the actual ID from Embold
+        # Using the ID you provided: 1233cdd1464463dcd122b3c07a9856a1
         curl --silent --location --request GET "${{ vars.EMBOLD_URL_CS}}/api/v1/repositories/1233cdd1464463dcd122b3c07a9856a1/scans/config/download" --header "Authorization:Bearer ${{ secrets.EMBOLD_TOKEN_CS}}" -o repository-configuration.json
         echo "Download repository configuration file done"
         
-        # ⚠️ IMPORTANT: Replace 'YOUR_SQLSUGAR_REPO_ID' here as well
         ./browserstack-codequality-scanner/bin/embold-scanner analyse -u ${{ vars.EMBOLD_URL_CS}} -t ${{ secrets.EMBOLD_TOKEN_CS}} -r 1233cdd1464463dcd122b3c07a9856a1 -b . -d ./embold-data -c ./repository-configuration.json -v
