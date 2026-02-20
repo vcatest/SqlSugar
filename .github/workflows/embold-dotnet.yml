@@ -19,42 +19,56 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: |
-          8.0.x
           9.0.x
 
-    # NEW STEP: Debug file structure and find the .sln file automatically
-    - name: Find Solution File
-      id: find-sln
-      shell: pwsh
-      run: |
-        echo "Searching for .sln files..."
-        $slnFile = Get-ChildItem -Path . -Filter *.sln -Recurse | Select-Object -First 1
+    # # NEW STEP: Debug file structure and find the .sln file automatically
+    # - name: Find Solution File
+    #   id: find-sln
+    #   shell: pwsh
+    #   run: |
+    #     echo "Searching for .sln files..."
+    #     $slnFile = Get-ChildItem -Path . -Filter *.sln -Recurse | Select-Object -First 1
         
-        if ($null -eq $slnFile) {
-            echo "::error::No .sln file found! Listing all files to help debug:"
-            Get-ChildItem -Recurse | Select-Object FullName
-            exit 1
-        }
+    #     if ($null -eq $slnFile) {
+    #         echo "::error::No .sln file found! Listing all files to help debug:"
+    #         Get-ChildItem -Recurse | Select-Object FullName
+    #         exit 1
+    #     }
         
-        echo "Found solution: $($slnFile.FullName)"
-        echo "SLN_PATH=$($slnFile.FullName)" >> $env:GITHUB_ENV
+    #     echo "Found solution: $($slnFile.FullName)"
+    #     echo "SLN_PATH=$($slnFile.FullName)" >> $env:GITHUB_ENV
 
-    - name: Restore dependencies
-      run: dotnet restore "${{ env.SLN_PATH }}"
+    # - name: Restore dependencies
+    #   run: dotnet restore "${{ env.SLN_PATH }}"
 
-    - name: Build
-      run: dotnet build "${{ env.SLN_PATH }}" --no-restore --configuration Release
+    # - name: Build
+    #   run: dotnet build "${{ env.SLN_PATH }}" --no-restore --configuration Release
 
-    - name: Embold Analyse
-      shell: bash
-      run: |
-        curl ${{ vars.EMBOLD_SCANNER_URL}} -o browserstack-codequality-scanner-archive.tar.gz
-        tar xvf browserstack-codequality-scanner-archive.tar.gz
-        echo "Download and extract BrowserStack CQ Scanner done"
+
+        ## NEW: Start SonarScanner (Hook into build)
+    - name: SonarScanner Begin
+      # Note: Replace "your_organization_key" with your actual SonarCloud organization key
+      run: dotnet sonarscanner begin /k:"vcatest_SqlSugar" /o:"vcatest" /d:sonar.token="96776fa54a595ed6a86cfb00e41cf351b5af5c0e" /d:sonar.host.url="https://sonarcloud.io/"
+      
+    ## NEW: Build the project (Required for Sonar analysis)
+    - name: Build Project
+      run: dotnet build # Add your .sln or .csproj path here if it's not in the root directory
+      
+    ## NEW: End SonarScanner (Upload analysis to Sonar server)
+    - name: SonarScanner End
+      run: dotnet sonarscanner end /d:sonar.token="96776fa54a595ed6a86cfb00e41cf351b5af5c0e"
+      
+
+    # - name: Embold Analyse
+    #   shell: bash
+    #   run: |
+    #     curl ${{ vars.EMBOLD_SCANNER_URL}} -o browserstack-codequality-scanner-archive.tar.gz
+    #     tar xvf browserstack-codequality-scanner-archive.tar.gz
+    #     echo "Download and extract BrowserStack CQ Scanner done"
         
-        # ⚠️ IMPORTANT: Replace 'YOUR_SQLSUGAR_REPO_ID' with the actual ID from Embold
-        curl --silent --location --request GET "${{ vars.EMBOLD_URL_CS}}/api/v1/repositories/1233cdd1464463dcd122b3c07a9856a1/scans/config/download" --header "Authorization:Bearer ${{ secrets.EMBOLD_TOKEN_CS}}" -o repository-configuration.json
-        echo "Download repository configuration file done"
+    #     # ⚠️ IMPORTANT: Replace 'YOUR_SQLSUGAR_REPO_ID' with the actual ID from Embold
+    #     curl --silent --location --request GET "${{ vars.EMBOLD_URL_CS}}/api/v1/repositories/1233cdd1464463dcd122b3c07a9856a1/scans/config/download" --header "Authorization:Bearer ${{ secrets.EMBOLD_TOKEN_CS}}" -o repository-configuration.json
+    #     echo "Download repository configuration file done"
         
-        # ⚠️ IMPORTANT: Replace 'YOUR_SQLSUGAR_REPO_ID' here as well
-        ./browserstack-codequality-scanner/bin/embold-scanner analyse -u ${{ vars.EMBOLD_URL_CS}} -t ${{ secrets.EMBOLD_TOKEN_CS}} -r 1233cdd1464463dcd122b3c07a9856a1 -b . -d ./embold-data -c ./repository-configuration.json -v
+    #     # ⚠️ IMPORTANT: Replace 'YOUR_SQLSUGAR_REPO_ID' here as well
+    #     ./browserstack-codequality-scanner/bin/embold-scanner analyse -u ${{ vars.EMBOLD_URL_CS}} -t ${{ secrets.EMBOLD_TOKEN_CS}} -r 1233cdd1464463dcd122b3c07a9856a1 -b . -d ./embold-data -c ./repository-configuration.json -v
