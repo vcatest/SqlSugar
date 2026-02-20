@@ -57,7 +57,10 @@ jobs:
       
     ## NEW: Build the project (Required for Sonar analysis)
     - name: Build Project
-      run: dotnet build # Add your .sln or .csproj path here if it's not in the root directory
+      run: |
+        dotnet build Src/Asp.Net/SqlSugar.sln
+        dotnet build Src/Asp.NetCore2/SqlSugarCore.sln
+        dotnet build Src/OracleUS7ASCII/SqlSugar.sln
       
     ## NEW: End SonarScanner (Upload analysis to Sonar server)
     - name: SonarScanner End
